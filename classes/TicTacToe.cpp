@@ -297,10 +297,100 @@ void TicTacToe::setStateString(const std::string &s)
 
 
 //
-// this is the function that will be called by the AI
+// negamax - works on a plain int array, not the real board
+// currentPlayer is 1 or 2 (matching the state string encoding)
+// returns a score from the perspective of currentPlayer
 //
-void TicTacToe::updateAI() 
+int TicTacToe::negamax(int board[9], int currentPlayer)
 {
-    // we will implement the AI in the next assignment!
+    // check terminal states
+    // winning triples
+    const int wins[8][3] = {
+        {0,1,2},{3,4,5},{6,7,8},
+        {0,3,6},{1,4,7},{2,5,8},
+        {0,4,8},{2,4,6}
+    };
+
+    int opponent = (currentPlayer == 1) ? 2 : 1;
+
+    for (int i = 0; i < 8; i++) {
+        int a = board[wins[i][0]];
+        int b = board[wins[i][1]];
+        int c = board[wins[i][2]];
+        if (a != 0 && a == b && b == c) {
+            // someone won - if it's the current player return +10, else -10
+            return (a == currentPlayer) ? 10 : -10;
+        }
+    }
+
+    // check for draw - no empty squares left
+    bool hasEmpty = false;
+    for (int i = 0; i < 9; i++) {
+        if (board[i] == 0) { hasEmpty = true; break; }
+    }
+    if (!hasEmpty) return 0;
+
+    // recurse - try each empty square
+    int bestScore = -100;
+    for (int i = 0; i < 9; i++) {
+        if (board[i] == 0) {
+            board[i] = currentPlayer;
+            // negamax: negate the score from the opponent's perspective
+            int score = -negamax(board, opponent);
+            board[i] = 0; // undo
+            if (score > bestScore) bestScore = score;
+        }
+    }
+
+    return bestScore;
+}
+
+//
+// runs negamax for each empty square and picks the one with the best score
+//
+int TicTacToe::getBestMove()
+{
+    // copy the real board into a plain array
+    int board[9];
+    for (int i = 0; i < 9; i++) {
+        Player *owner = ownerAt(i);
+        board[i] = owner ? (owner->playerNumber() + 1) : 0;
+    }
+
+    // AI is player 1 (state string value = 2)
+    int aiValue = AI_PLAYER + 1;
+
+    int bestScore = -100;
+    int bestMove = -1;
+    for (int i = 0; i < 9; i++) {
+        if (board[i] == 0) {
+            board[i] = aiValue;
+            int score = -negamax(board, (aiValue == 1) ? 2 : 1);
+            board[i] = 0;
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = i;
+            }
+        }
+    }
+
+    return bestMove;
+}
+
+//
+// called each frame when it's the AI's turn
+//
+void TicTacToe::updateAI()
+{
+    int move = getBestMove();
+    if (move == -1) return; // no valid move (shouldn't happen)
+
+    int x = move % 3;
+    int y = move / 3;
+
+    BitHolder &holder = _grid[y][x];
+    if (actionForEmptyHolder(&holder)) {
+        endTurn();
+    }
 }
 

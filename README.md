@@ -224,11 +224,56 @@ I tested all the different ways to win:
 
 Everything works correctly now.
 
+## AI - Negamax
+
+I added an AI opponent using the negamax algorithm. You can switch between 2 player mode and vs AI mode using the button in the Settings panel. The AI always plays as Player 1 (X), so you play as Player 0 (O) and go first.
+
+### How Negamax Works
+
+Negamax is a version of minimax that's a bit simpler to write. The idea is that in a two player zero-sum game, one player's gain is the other player's loss. So instead of having separate max and min functions, you just have one function that always maximizes from the current player's perspective, and negate the score when you recurse into the opponent's turn.
+
+The function tries every possible move, recurses to see what happens, then undoes the move and tries the next one. At the bottom it scores the board: +10 if the current player wins, -10 if they lose, 0 for a draw.
+
+```cpp
+int score = -negamax(board, opponent);
+```
+
+The negation flips the score so that the opponent's win (which would be +10 from their perspective) becomes -10 from ours.
+
+### Why It Works for Tic-Tac-Toe
+
+Tic-tac-toe has a small game tree - at most 9! = 362880 possible games, and way fewer in practice because games end early when someone wins. So negamax can search all the way to the end without needing alpha-beta pruning. It just brute forces every possible game and picks the best move.
+
+### Implementation Details
+
+The negamax search doesn't touch the real game board at all. It works on a plain `int board[9]` array where 0 = empty, 1 = Player 0, 2 = Player 1. This keeps it fast and avoids any issues with creating/destroying Bit sprites during the search.
+
+`getBestMove()` copies the real board into that array, runs negamax for each empty square, and returns the index of the best move. Then `updateAI()` takes that index, converts it to x,y coordinates, and places the piece on the real grid.
+
+The AI hook was already partially set up in the framework - there was commented out code in `Game.cpp::scanForMouse()` that checks if it's the AI's turn and calls `updateAI()`. I just uncommented that and implemented the rest.
+
+### Bug I Ran Into
+
+The `setAIPlayer()` call has to come *after* `setUpBoard()`. The reason is that `setUpBoard()` calls `setNumberOfPlayers()` which recreates all the Player objects from scratch, wiping out the AI flag. I figured this out when the AI just wasn't responding at all after switching modes.
+
+## Files I Added/Changed (Assignment 2)
+
+**Modified:**
+- `classes/TicTacToe.h` - Added negamax(), getBestMove() declarations, _aiEnabled flag, setAIEnabled/isAIEnabled methods. Changed gameHasAI() to return _aiEnabled instead of always true.
+- `classes/TicTacToe.cpp` - Implemented negamax(), getBestMove(), and updateAI()
+- `classes/Game.cpp` - Uncommented the AI check in scanForMouse()
+- `Application.cpp` - Added aiMode toggle button, wired up setAIEnabled and setAIPlayer on mode switch and reset
+
 ## Time Spent
 
-About 5 hours total - most of it was implementing the core game logic and debugging the grid positioning issue. The winner detection bug took a while to track down because it only happened in one specific scenario.
+About 5 hours for the core game logic, plus another 2-3 hours for the AI. Most of the AI time was figuring out the setAIPlayer ordering bug.
 
 ## References
 
 - The skeleton code comments in TicTacToe.cpp were very detailed and helpful
 - Looked at the Game.h, BitHolder.h, and Square.h headers to understand the framework's API
+- Wikipedia negamax article for the algorithm: https://en.wikipedia.org/wiki/Negamax
+
+## GitHub
+
+https://github.com/mdamdinb/cmpm123_assignment2
